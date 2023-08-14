@@ -65,7 +65,7 @@ fn collect_vars_from_mask(mask: &str) -> Vec<VarMask> {
         bit_pos += iter
             .by_ref()
             .peeking_take_while(|c| match c {
-                '0' | '1' => true,
+                '0' | '1' | '-' => true,
                 _ => false,
             })
             .count();
@@ -102,6 +102,7 @@ fn mask_str_to_lit(mask: &str, ty: &Type) -> (LitInt, LitInt, bool) {
                 irrefutable = false;
                 ('1', '1')
             }
+            '-' => ('0', '0'),
             _ => ('0', '0'),
         })
         .fold(
@@ -139,7 +140,7 @@ fn visit_arm(arm: Arm) -> BArm {
                     .value()
                     .chars()
                     .filter(|c| match c {
-                        '_' | '-' => false,
+                        '_' => false,
                         _ => true,
                     })
                     .collect(),
