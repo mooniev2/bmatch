@@ -181,7 +181,11 @@ fn bmatch_to_tokens(bmatch: BMatch) -> TokenStream {
                 let ident = &var.ident;
                 let mask = LitInt::new(&((1 << var.length) - 1).to_string(), Span::call_site());
                 let shift = var.start_bit;
-                quote::quote!(let #ident = (#mask_ident >> #shift) & #mask)
+                if var.length == 1 {
+                    quote::quote!(#[allow(non_snake_case)] let #ident = (#mask_ident >> #shift) & #mask != 0)
+                } else {
+                    quote::quote!(#[allow(non_snake_case)] let #ident = (#mask_ident >> #shift) & #mask)
+                }
             });
             let (int_mask, int_expect, irrefutable) = mask_str_to_lit(&mask, &ty);
             let guard = if let Some(guard) = guard {
