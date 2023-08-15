@@ -28,31 +28,14 @@ struct BMatch {
     barms: Vec<BArm>,
 }
 
-fn mask_and_ty_to_lit(str_str: &str, ty: &Type) -> LitInt {
-    let ty = quote!(#ty).to_string();
-    LitInt::new(&format!("0b0{str_str}{ty}"), Span::call_site())
+fn mask_and_ty_to_lit(str_str: &str) -> LitInt {
+    LitInt::new(&format!("0b0{str_str}"), Span::call_site())
 }
 
 struct VarMask {
     ident: Ident,
     start_bit: usize,
     length: usize,
-}
-
-fn mask_str_to_ty(str: &str) -> Type {
-    if str.len() > 128 {
-        panic!("bit string cannot exceed a bit width of 128.")
-    } else if str.len() > 64 {
-        parse_quote!(u128)
-    } else if str.len() > 32 {
-        parse_quote!(u64)
-    } else if str.len() > 16 {
-        parse_quote!(u32)
-    } else if str.len() > 8 {
-        parse_quote!(u16)
-    } else {
-        parse_quote!(u8)
-    }
 }
 
 fn collect_vars_from_mask(mask: &str) -> Vec<VarMask> {
@@ -89,7 +72,7 @@ fn collect_vars_from_mask(mask: &str) -> Vec<VarMask> {
     masks
 }
 
-fn mask_str_to_lit(mask: &str, ty: &Type) -> (LitInt, LitInt, bool) {
+fn mask_str_to_lit(mask: &str) -> (LitInt, LitInt, bool) {
     let mut irrefutable = true;
     let (mask, expect) = mask
         .chars()
@@ -114,8 +97,8 @@ fn mask_str_to_lit(mask: &str, ty: &Type) -> (LitInt, LitInt, bool) {
             },
         );
     (
-        mask_and_ty_to_lit(&mask, &ty),
-        mask_and_ty_to_lit(&expect, &ty),
+        mask_and_ty_to_lit(&mask),
+        mask_and_ty_to_lit(&expect),
         irrefutable,
     )
 }
@@ -175,7 +158,7 @@ fn bmatch_to_tokens(bmatch: BMatch) -> TokenStream {
     let arm_iter = bmatch.barms.into_iter().map(|arm| match arm {
         BArm::Masked { mask, guard, body } => {
             let mask_ident = Ident::new("_mask_", Span::call_site());
-            let ty = mask_str_to_ty(&mask);
+            assert!(mask.len() <= 128, "bit string cannot exceed a bit width of 128.");
             let vars = collect_vars_from_mask(&mask);
             let declr_vars = vars.iter().map(|var| {
                 let ident = &var.ident;
@@ -187,7 +170,7 @@ fn bmatch_to_tokens(bmatch: BMatch) -> TokenStream {
                     quote::quote!(#[allow(non_snake_case)] let #ident = (#mask_ident >> #shift) & #mask)
                 }
             });
-            let (int_mask, int_expect, irrefutable) = mask_str_to_lit(&mask, &ty);
+            let (int_mask, int_expect, irrefutable) = mask_str_to_lit(&mask);
             let guard = if let Some(guard) = guard {
                 let inner_expr = &guard.1;
                 let declr_vars = declr_vars.clone();
